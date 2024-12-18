@@ -24,7 +24,7 @@ The pipeline incorporates the following steps:
 
 ## Docker Containers Utilized
 
-The following Docker containers ensure reproducibility and consistency:
+Docker containers:
 
 | Step                 | Docker Container                                   |
 |----------------------|---------------------------------------------------|
@@ -133,7 +133,7 @@ write.csv(DEG_results, "DEG_results.csv")
 ```
 
 ### 4. Visualization
-Key visualizations reveal patterns in the data:
+Key visualizations to reveal patterns in the data:
 
 **Volcano Plot**:
 ```r
@@ -168,8 +168,6 @@ dotplot(go, showCategory = 20)
 ```
 
 ---
-
-This section effectively answers the key questions, embedding them within the workflow for context and narrative flow.---
 
 ## Cross-Species Analysis: Human ↔ Mouse Orthologs
 

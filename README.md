@@ -1,6 +1,10 @@
 # RNA-Seq Pipeline Documentation
 
-This document provides a detailed overview of a comprehensive RNA-Seq pipeline designed for data processing, alignment, differential expression analysis, and cross-species comparison.
+This project uses an RNA-Seq pipeline to:
+
+**Study Human Retinoblastoma Tumors:** Analyze molecular differences between tumor and normal tissues.
+
+**Analyze Cross-Species Gene Expression:** Compare gene expression between human and mouse to uncover conserved and species-specific patterns.
 
 ---
 
@@ -95,12 +99,16 @@ bamCoverage -b "$outbamblk" -o "$coverage" \
 
 ---
 
+---
+
 ## Differential Expression Analysis: Retinoblastoma Tumor Study
 
-This study processes RNA-seq data, identifies DEGs, and performs visualization and functional enrichment.
+### **Which genes are differentially expressed in retinoblastoma tumors compared to normal tissues?**
+
+This study processes RNA-seq data to identify differentially expressed genes (DEGs) in retinoblastoma tumors and employs visualization techniques to present the findings.
 
 ### 1. Data Preparation
-Combine **HTSeq** count files:
+The **HTSeq** count files are combined for downstream analysis:
 ```r
 files <- c("/path/to/file1.htseq.txt", "/path/to/file2.htseq.txt")
 combined_df <- lapply(files, read_htseq_file) %>%
@@ -109,12 +117,14 @@ write.csv(combined_df, "htseq_combined_Counts.csv")
 ```
 
 ### 2. Preprocessing and Filtering
+Normalization and filtering ensure data quality:
 ```r
 dge <- DGEList(counts = counts, group = factor(c("1", "1", "2", "2", "2")))
 dge <- calcNormFactors(dge)
 ```
 
 ### 3. Differential Expression
+DEGs are identified through statistical modeling:
 ```r
 fit <- glmFit(dge, model.matrix(~group))
 lrt <- glmLRT(fit)
@@ -123,11 +133,14 @@ write.csv(DEG_results, "DEG_results.csv")
 ```
 
 ### 4. Visualization
+Key visualizations reveal patterns in the data:
+
 **Volcano Plot**:
 ```r
 ggplot(volcano_data, aes(x = logFC, y = negLogP, color = Status)) +
   geom_point() + labs(title = "Volcano Plot")
 ```
+
 **Heatmap**:
 ```r
 pheatmap(log_cpm, main = "Top DE Genes Heatmap")
@@ -135,7 +148,32 @@ pheatmap(log_cpm, main = "Top DE Genes Heatmap")
 
 ---
 
+### **What are the functional roles of the identified differentially expressed genes, and how do they contribute to specific pathways?**
+
+Pathway enrichment analyses provide insights into the biological significance of DEGs.
+
+**GO and KEGG Enrichment**:
+```r
+library(clusterProfiler)
+significant_genes <- rownames(DEG_results)[abs(DEG_results$logFC) >= 1 & DEG_results$PValue <= 0.1]
+entrez_ids <- bitr(significant_genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+
+# KEGG Enrichment
+kegg <- enrichKEGG(gene = entrez_ids$ENTREZID, organism = 'hsa', pvalueCutoff = 0.1)
+dotplot(kegg, showCategory = 20)
+
+# GO Enrichment
+go <- enrichGO(gene = entrez_ids$ENTREZID, OrgDb = org.Hs.eg.db, ont = "ALL", pvalueCutoff = 0.1)
+dotplot(go, showCategory = 20)
+```
+
+---
+
+This section effectively answers the key questions, embedding them within the workflow for context and narrative flow.---
+
 ## Cross-Species Analysis: Human ↔ Mouse Orthologs
+
+**Are the observed gene expression changes in retinoblastoma conserved between human and mouse models?**
 
 This section identifies DEGs conserved between human and mouse using ortholog mappings.
 
@@ -174,7 +212,7 @@ ggplot(human_to_mouse, aes(x = direction, y = logFC)) + geom_boxplot()
 
 ### Step 4: Statistical Tests
 ```r
-wilcox.test(up_human$logFC, human_to_mouse$logFC[human_to_mouse$direction == "Unchanged"])
+wilcox.test
 ```
 
 ---

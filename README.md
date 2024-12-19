@@ -44,7 +44,7 @@ Docker containers:
 ### Step 1: Quality Control
 **FastQC**:
 ```bash
-fastqc -o /path/to/fastqc_results /path/to/trimmed_file.fq.gz
+fastqc -o /path/to/fastqc_results /path/to/RNAseq_raw.fq.gz
 ```
 **MultiQC**:
 ```bash
@@ -59,6 +59,12 @@ multiqc /path/to/fastqc_results -o /path/to/multiqc_results
 trim_galore -j 8 --gzip -o "${output_dir}" --paired "$r1" "$r2"
 ```
 
+Optional: 
+
+**FastQC**:
+```bash
+fastqc -o /path/to/fastqc_results /path/to/trimmed_file.fq.gz
+```
 ---
 
 ### Step 3: Read Alignment
@@ -110,7 +116,7 @@ This study processes RNA-seq data to identify differentially expressed genes (DE
 ### 1. Data Preparation
 The **HTSeq** count files are combined for downstream analysis:
 ```r
-files <- c("/path/to/file1.htseq.txt", "/path/to/file2.htseq.txt")
+files <- c("/path/to/file1.htseq.txt", "/path/to/file2.htseq.txt".....)
 combined_df <- lapply(files, read_htseq_file) %>%
   Reduce(function(x, y) merge(x, y, by = c("GeneID", "GeneName")), .)
 write.csv(combined_df, "htseq_combined_Counts.csv")
@@ -137,13 +143,58 @@ Key visualizations to reveal patterns in the data:
 
 **Volcano Plot**:
 ```r
+# Generate volcano_data from DEG_results
+volcano_data <- data.frame(
+  Gene = rownames(DEG_results),
+  logFC = DEG_results$logFC,
+  pValue = DEG_results$PValue,
+  negLogP = -log10(DEG_results$PValue),
+  Status = "Not Significant"  # Default status
+)
+
+# Update status for upregulated and downregulated genes
+volcano_data$Status[volcano_data$logFC > 1 & volcano_data$FDR <= 0.01] <- "Upregulated"
+volcano_data$Status[volcano_data$logFC < -1 & volcano_data$FDR <= 0.01] <- "Downregulated"
+
+# Create the volcano plot
 ggplot(volcano_data, aes(x = logFC, y = negLogP, color = Status)) +
-  geom_point() + labs(title = "Volcano Plot")
+  geom_point(alpha = 0.6, size = 2.5) +
+  scale_color_manual(values = c("blue", "grey", "red")) +
+  geom_vline(xintercept = c(-2, 2), linetype = "dashed") +
+  geom_hline(yintercept = -log10(0.1), linetype = "dashed") +
+  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 P-Value") +
+  theme_minimal() +
+  geom_text_repel(aes(label = Label), size = 3, max.overlaps = 10)
+
 ```
 
 **Heatmap**:
 ```r
-pheatmap(log_cpm, main = "Top DE Genes Heatmap")
+# Filter upregulated and downregulated genes
+upregulated_genes <- rownames(DEG_results)[DEG_results$logFC > 1 & DEG_results$FDR <= 0.01]
+downregulated_genes <- rownames(DEG_results)[DEG_results$logFC < -1 & DEG_results$FDR <= 0.01]
+
+# Limit the number of genes (adjust thresholds if necessary)
+upregulated_genes <- upregulated_genes[1:min(100, length(upregulated_genes))]
+downregulated_genes <- downregulated_genes[1:min(100, length(downregulated_genes))]
+
+# Combine upregulated and downregulated genes
+combined_genes <- c(upregulated_genes, downregulated_genes)
+
+# Subset counts and calculate log CPM values
+combined_counts <- dge$counts[combined_genes, ]
+log_cpm <- cpm(dge, log = TRUE)[combined_genes, ]
+
+# Create heatmap
+library(pheatmap)
+pheatmap(
+  log_cpm, 
+  main = "Heatmap of Top Genes", 
+  color = colorRampPalette(c("blue", "white", "red"))(50), 
+  cluster_rows = TRUE, 
+  cluster_cols = TRUE, 
+  show_rownames = FALSE
+)
 ```
 
 ---
@@ -243,9 +294,10 @@ ggplot(rod_melt, aes(x = Condition, y = log2(Expression + 1), fill = Condition))
 ---
 ## Cross-Species Analysis: Human ↔ Mouse Orthologs
 
-## **Are the observed gene expression changes in retinoblastoma conserved between human and mouse models?***
+## **Are the observed gene expression changes conserved between human and mouse models?**
 
-This analysis aims to identify and visualize conserved gene expression changes in retinoblastoma between human and mouse models using ortholog mappings and differential expression analysis.
+This analysis aims to identify and visualize conserved gene expression changes between human and mouse models using ortholog mappings and differential expression analysis.
+
 
 ---
 
@@ -329,7 +381,24 @@ ggplot(merged_human_mouse, aes(x = direction, y = tcKO_v_CreNeg_LogFC, fill = di
 Perform Wilcoxon tests to assess differences in fold changes:
 
 ```r
-wilcox.test
+# Perform Wilcoxon rank sum test: Upregulated vs Unchanged
+test1 <- wilcox.test(
+  upregulated_genes$tcKO_v_CreNeg_LogFC,
+  unchanged_genes$tcKO_v_CreNeg_LogFC,
+  alternative = "two.sided",  
+  correct = TRUE              
+)
+print(test1)
+
+# Perform Wilcoxon rank sum test: Downregulated vs Unchanged
+test2 <- wilcox.test(
+  downregulated_genes$tcKO_v_CreNeg_LogFC,
+  unchanged_genes$tcKO_v_CreNeg_LogFC,
+  alternative = "two.sided",  # Test for any difference (not directional)
+  correct = TRUE              # Apply continuity correction
+)
+
+print(test2)
 ```
 
 ---

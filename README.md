@@ -2,9 +2,9 @@
 
 This project uses an RNA-Seq pipeline to:
 
-**Study Human Retinoblastoma Tumors:** Analyze molecular differences between tumor and normal tissues.
+**Study Human Retinoblastoma Tumors:** Analyze gene expression differences between tumor and normal tissues.
 
-**Analyze Cross-Species Gene Expression:** Compare gene expression between human and mouse to uncover conserved and species-specific patterns.
+**Analyze Cross-Species Gene Expression:** Compare gene expression between human and mouse to explore species-specific patterns.
 
 ---
 
@@ -168,49 +168,170 @@ dotplot(go, showCategory = 20)
 ```
 
 ---
+## Rod and Cone Gene Expression Analysis
 
+### **What are the overall expression trends for rod- and cone-enriched genes across normal (N) and tumor (T) samples, as observed through RNA-Seq data?**
+---
+
+#### **Overview of the Approach**
+
+1. **Gene Selection**: Predefined lists of rod- and cone-enriched genes were used to filter the RNA-Seq dataset.
+2. **Normalization**: Log-transformed counts per million (CPM) and Z-score normalization were applied to standardize expression data across samples.
+3. **Visualization**: Heatmaps and boxplots were generated to compare expression patterns and summarize trends between normal and tumor samples.
+
+---
+
+#### **Key Steps and Code Snippets**
+
+**1. Filtering Rod- and Cone-Enriched Genes**
+
+Rod- and cone-enriched genes were selected from the dataset using predefined gene lists:
+
+```r
+# Define rod- and cone-enriched gene lists
+rod_genes <- toupper(c("SAMD11", "RHO", "PDE6A", "GNAT1", "GNGT1", "CNGB1"........))
+cone_genes <- toupper(c("GNAT2", "CNGB3", "PDE6H", "GUCA1C", "OPN1MW"........))
+
+# Filter counts for rod and cone genes
+counts$GeneName <- toupper(counts$GeneName)  # Ensure consistency
+rod_gene_counts <- counts[counts$GeneName %in% rod_genes, ]
+cone_gene_counts <- counts[counts$GeneName %in% cone_genes, ]
+```
+
+---
+
+**2. Normalizing Data and Generating Heatmaps**
+
+Log-transformed CPM values were computed and standardized using Z-scores, followed by heatmap visualization:
+
+```r
+# Compute log-transformed CPM and Z-scores
+log_cpm <- cpm(dge, log = TRUE)
+z_scores <- t(scale(t(log_cpm)))
+
+# Generate heatmap for rod genes
+pheatmap(z_scores, 
+         main = "Rod Gene Expression Heatmap", 
+         color = colorRampPalette(c("blue", "white", "red"))(50),
+         cluster_rows = TRUE, 
+         cluster_cols = TRUE)
+```
+
+---
+
+**3. Comparing Average Gene Expression**
+
+Boxplots were created to summarize average expression differences between normal and tumor samples:
+
+```r
+# Calculate average expression for rods
+rod_gene_counts$N_avg <- rowMeans(rod_gene_counts[, c("N1", "N2")])
+rod_gene_counts$T_avg <- rowMeans(rod_gene_counts[, c("T1", "T2", "T3")])
+
+# Melt data for visualization
+rod_melt <- melt(rod_gene_counts[, c("N_avg", "T_avg")], 
+                 variable.name = "Condition", 
+                 value.name = "Expression")
+
+# Plot boxplot
+ggplot(rod_melt, aes(x = Condition, y = log2(Expression + 1), fill = Condition)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, alpha = 0.7) +
+  labs(title = "Rod Gene Expression Between Conditions",
+       x = "Condition", y = "log2(Average Expression + 1)")
+```
+
+---
 ## Cross-Species Analysis: Human ↔ Mouse Orthologs
 
-**Are the observed gene expression changes in retinoblastoma conserved between human and mouse models?**
+## **Are the observed gene expression changes in retinoblastoma conserved between human and mouse models?***
 
-This section identifies DEGs conserved between human and mouse using ortholog mappings.
+This analysis aims to identify and visualize conserved gene expression changes in retinoblastoma between human and mouse models using ortholog mappings and differential expression analysis.
 
-### Step 1: Retrieve Orthologs
+---
+
+#### **Step 1: Retrieve Orthologs**
+
+Retrieve orthologs between human and mouse genomes using the Ensembl database:
+
 ```r
+library(biomaRt)
 human <- useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl")
-orthologs_human_to_mouse <- getBM(
+orthologs <- getBM(
   attributes = c("ensembl_gene_id", "mmusculus_homolog_ensembl_gene"),
   filters = "with_mmusculus_homolog",
-  values = TRUE, mart = human
+  values = TRUE,
+  mart = human,
+  uniqueRows = TRUE
 )
 ```
 
-### Step 2: Merge Data
+### **Step 2: Merge Data**
+
+Combine human differential expression data with orthologs and subsequently merge with mouse expression data to create a unified dataset:
+
 ```r
-human_to_mouse <- orthologs_human_to_mouse %>%
-  inner_join(human_data, by = c("ensembl_gene_id" = "GeneID")) %>%
-  inner_join(mouse_data, by = c("mmusculus_homolog_ensembl_gene" = "id"))
+# Preprocess and clean Ensembl IDs
+human_data$GeneID <- gsub("\\..*", "", human_data$GeneID)
+orthologs$ensembl_gene_id <- gsub("\\..*", "", orthologs$ensembl_gene_id)
+mouse_data$id <- gsub("\\..*", "", mouse_data$id)
+
+# Merge human data with orthologs
+merged_human_orthologs <- merge(human_data, orthologs, by.x = "GeneID", by.y = "ensembl_gene_id")
+
+# Merge with mouse data
+merged_human_mouse <- merge(merged_human_orthologs, mouse_data, 
+                            by.x = "mmusculus_homolog_ensembl_gene", by.y = "id")
 ```
 
-### Step 3: Visualization
-**Venn Diagrams**:
+#### **Step 3: Classify Genes by Expression**
+
+Classify genes based on fold-change and significance thresholds:
+
+```r
+upregulated_human <- merged_human_mouse$ensembl_gene_id[merged_human_mouse$logFC >= 1 & merged_human_mouse$FDR < 0.01]
+downregulated_human <- merged_human_mouse$ensembl_gene_id[merged_human_mouse$logFC <= -1 & merged_human_mouse$FDR < 0.01]
+
+upregulated_mouse <- merged_human_mouse$ensembl_gene_id[merged_human_mouse$tcKO_v_CreNeg_LogFC >= 1 & merged_human_mouse$tcKO_v_CreNeg_FDR < 0.01]
+downregulated_mouse <- merged_human_mouse$ensembl_gene_id[merged_human_mouse$tcKO_v_CreNeg_LogFC <= -1 & merged_human_mouse$tcKO_v_CreNeg_FDR < 0.01]
+```
+
+#### **Step 4: Visualize Results**
+
+- **Venn Diagrams**:
+  
+Visualize overlaps between up- and down-regulated orthologs in human and mouse:
+
 ```r
 venn.diagram(
   x = list(
-    "Human Up" = up_human$ensembl_gene_id,
-    "Mouse Up" = up_mouse$ensembl_gene_id
-  ), filename = NULL
+    "Human Upregulated" = upregulated_human,
+    "Mouse Upregulated" = upregulated_mouse
+  ),
+  filename = NULL,
+  main = "Overlap of Upregulated Genes"
 )
 ```
 
-**Boxplots**:
+- **Boxplots**:
+  
+Compare fold changes between human and mouse orthologs:
+
 ```r
-ggplot(human_to_mouse, aes(x = direction, y = logFC)) + geom_boxplot()
+ggplot(merged_human_mouse, aes(x = direction, y = tcKO_v_CreNeg_LogFC, fill = direction)) +
+  geom_boxplot(outlier.color = "yellow", notch = TRUE, width = 0.5, color = "black") +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+  labs(title = "Gene Expression Across Human and Mouse Orthologs",
+       x = "Expression Category (Human)", y = "Mouse Fold Change")
 ```
 
-### Step 4: Statistical Tests
+#### **Step 5: Statistical Tests**
+
+Perform Wilcoxon tests to assess differences in fold changes:
+
 ```r
 wilcox.test
 ```
 
 ---
+

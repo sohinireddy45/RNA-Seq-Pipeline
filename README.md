@@ -176,8 +176,7 @@ dotplot(go, showCategory = 20)
 #### **Overview of the Approach**
 
 1. **Gene Selection**: Predefined lists of rod- and cone-enriched genes were used to filter the RNA-Seq dataset.
-2. **Normalization**: Log-transformed counts per million (CPM) and Z-score normalization were applied to standardize expression data across samples.
-3. **Visualization**: Heatmaps and boxplots were generated to compare expression patterns and summarize trends between normal and tumor samples.
+2. **Visualization**: Heatmaps and boxplots were generated to compare expression patterns and summarize trends between normal and tumor samples.
 
 ---
 
@@ -200,7 +199,7 @@ cone_gene_counts <- counts[counts$GeneName %in% cone_genes, ]
 
 ---
 
-**2. Normalizing Data and Generating Heatmaps**
+**2. Generating Heatmaps**
 
 Log-transformed CPM values were computed and standardized using Z-scores, followed by heatmap visualization:
 

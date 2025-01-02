@@ -394,8 +394,8 @@ print(test1)
 test2 <- wilcox.test(
   downregulated_genes$tcKO_v_CreNeg_LogFC,
   unchanged_genes$tcKO_v_CreNeg_LogFC,
-  alternative = "two.sided",  # Test for any difference (not directional)
-  correct = TRUE              # Apply continuity correction
+  alternative = "two.sided",  
+  correct = TRUE              
 )
 
 print(test2)

@@ -6,6 +6,8 @@ This project uses an RNA-Seq pipeline to:
 
 **Analyze Cross-Species Gene Expression:** Compare gene expression between human and mouse to explore species-specific patterns.
 
+> [Active DNA demethylation is upstream of rod-photoreceptor fate determination and required for retinal development](https://doi.org/10.1101/2025.02.03.636318)
+
 ---
 
 ## Pipeline Features
